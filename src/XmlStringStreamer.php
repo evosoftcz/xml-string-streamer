@@ -1,12 +1,12 @@
-<?php
+<?php declare(strict_types=1);
+namespace Prewk;
+
 /**
  * xml-string-streamer base class
  * 
  * @package xml-string-streamer
  * @author  Oskar Thornblad <oskar.thornblad@gmail.com>
  */
-
-namespace Prewk;
 
 use Prewk\XmlStringStreamer\ParserInterface;
 use Prewk\XmlStringStreamer\StreamInterface;
@@ -22,12 +22,12 @@ class XmlStringStreamer
      * The current parser
      * @var ParserInterface
      */
-    protected $parser;
+    protected ParserInterface $parser;
     /**
      * The current stream
      * @var StreamInterface
      */
-    protected $stream;
+    protected StreamInterface $stream;
 
     /**
      * Constructs the XML streamer
@@ -46,7 +46,7 @@ class XmlStringStreamer
      * @param  array           $options Parser configuration
      * @return XmlStringStreamer        A streamer ready for use
      */
-    public static function createStringWalkerParser($file, $options = array())
+    public static function createStringWalkerParser(mixed $file, array $options = []): XmlStringStreamer
     {
         $stream = new Stream\File($file, 16384);
         $parser = new Parser\StringWalker($options);
@@ -55,11 +55,12 @@ class XmlStringStreamer
 
     /**
      * Convenience method for creating a UniqueNode parser with a File stream
-     * @param  string|resource $file    File path or handle
-     * @param  array           $options Parser configuration
+     * @param  string|resource  $file     File path or handle
+     * @param  array            $options  Parser configuration
      * @return XmlStringStreamer        A streamer ready for use
+     * @throws \Exception
      */
-    public static function createUniqueNodeParser($file, $options = array())
+    public static function createUniqueNodeParser(mixed $file, array $options): XmlStringStreamer
     {
         $stream = new Stream\File($file, 16384);
         $parser = new Parser\UniqueNode($options);
@@ -70,7 +71,7 @@ class XmlStringStreamer
      * Gets the next node from the parser
      * @return bool|string The xml string or false
      */
-    public function getNode()
+    public function getNode(): bool|string
     {
         return $this->parser->getNodeFrom($this->stream);
     }

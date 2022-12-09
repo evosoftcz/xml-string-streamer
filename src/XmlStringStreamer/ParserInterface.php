@@ -1,12 +1,12 @@
-<?php
+<?php declare(strict_types=1);
+namespace Prewk\XmlStringStreamer;
+
 /**
  * xml-string-streamer Parser interface
  * 
  * @package xml-string-streamer
  * @author  Oskar Thornblad <oskar.thornblad@gmail.com>
  */
-
-namespace Prewk\XmlStringStreamer;
 
 /**
  * Interface describing a parser
@@ -24,13 +24,13 @@ interface ParserInterface
      * @param  StreamInterface $stream The stream to use
      * @return string|bool             The next xml node or false if one could not be retrieved
      */
-    public function getNodeFrom(StreamInterface $stream);
+    public function getNodeFrom(StreamInterface $stream): bool|string;
 
     /**
      * Get the extracted container XML, if called before the whole stream is parsed, the XML returned can be invalid due to missing closing tags
      * @return string XML string
      */
-    public function getExtractedContainer();
+    public function getExtractedContainer(): string;
 
     /**
      * Reset all Parser internal caches, working blobs, working chunks etc.
@@ -39,5 +39,5 @@ interface ParserInterface
      *
      * @return void
      */
-    public function reset();
+    public function reset(): void;
 }
