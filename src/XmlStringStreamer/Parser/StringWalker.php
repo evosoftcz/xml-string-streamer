@@ -214,7 +214,7 @@ class StringWalker implements ParserInterface
      * @param  StreamInterface $stream The stream to use
      * @return string|bool             The next xml node or false if one could not be retrieved
      */
-    public function getNodeFrom(StreamInterface $stream): bool|string|null
+    public function getNodeFrom(StreamInterface $stream): bool|string
     {
         // Iterate and append to $this->chunk
         while ($this->prepareChunk($stream)) {
