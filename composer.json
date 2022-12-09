@@ -17,6 +17,9 @@
     "scripts": {
         "test": "phpunit"
     },
+    "replace": {
+        "prewk/xml-string-streamer": "*"
+    },
     "require": {
         "php": "^8.2"
     },
