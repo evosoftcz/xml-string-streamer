@@ -1,11 +1,14 @@
-<?php namespace Prewk\XmlStringStreamer\Stream;
-
-use Prewk\XmlStringStreamer\StreamInterface;
+<?php declare(strict_types=1);
+namespace Prewk\XmlStringStreamer\Stream;
 
 class Stdin extends File
 {
-    public function __construct($chunkSize = 1024, $chunkCallback = null)
+    /**
+     * @param  int         $chunkSize
+     * @param  mixed|null  $chunkCallback
+     */
+    public function __construct(int $chunkSize = 1024, mixed $chunkCallback = null)
     {
-        parent::__construct(fopen("php://stdin", "r"), $chunkSize, $chunkCallback);
+        parent::__construct(fopen('php://stdin', 'rb'), $chunkSize, $chunkCallback);
     }
 }

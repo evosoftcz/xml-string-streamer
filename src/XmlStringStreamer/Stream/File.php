@@ -1,16 +1,23 @@
-<?php namespace Prewk\XmlStringStreamer\Stream;
+<?php declare(strict_types=1);
+namespace Prewk\XmlStringStreamer\Stream;
 
 use Exception;
 use Prewk\XmlStringStreamer\StreamInterface;
+use RuntimeException;
 
 class File implements StreamInterface
 {
-    private $handle;
-    private $readBytes = 0;
-    private $chunkSize;
-    private $chunkCallback;
+    private mixed $handle;
+    private int $readBytes = 0;
+    private mixed $chunkSize;
+    private mixed $chunkCallback;
 
-    public function __construct($mixed, $chunkSize = 16384, $chunkCallback = null)
+    /**
+     * @param  mixed       $mixed
+     * @param  int         $chunkSize
+     * @param  mixed|null  $chunkCallback
+     */
+    public function __construct(mixed $mixed, int $chunkSize = 16384, mixed $chunkCallback = null)
     {
         if (is_string($mixed)) {
             // Account for common stream/URL wrappers before checking if a file exists
@@ -26,37 +33,44 @@ class File implements StreamInterface
             }
             // If there's a real disk path to check, make sure it exists
             if ($realPath !== null && !file_exists($realPath)) {
-                throw new \Exception("File '$realPath' doesn't exist");
+                throw new RuntimeException("File '$realPath' doesn't exist");
             }
             $this->handle = fopen($mixed, 'rb');
         } elseif (is_resource($mixed) && get_resource_type($mixed) === "stream") {
             $this->handle = $mixed;
         } else {
-            throw new \Exception("First argument must be either a filename or a file handle");
+            throw new RuntimeException("First argument must be either a filename or a file handle");
         }
 
         if ($this->handle === false) {
-            throw new \Exception("Couldn't create file handle");
+            throw new RuntimeException("Couldn't create file handle");
         }
 
         $this->chunkSize = $chunkSize;
         $this->chunkCallback = $chunkCallback;
     }
 
-    public function __destruct() {
+    /**
+     *
+     */
+    public function __destruct()
+    {
         if (is_resource($this->handle)) {
             fclose($this->handle);
         }
     }
 
-    public function getChunk()
+    /**
+     * @return bool|string
+     */
+    public function getChunk(): bool|string
     {
         if (is_resource($this->handle) && !feof($this->handle)) {
             $buffer = fread($this->handle, $this->chunkSize);
             $this->readBytes += strlen($buffer);
 
             if (is_callable($this->chunkCallback)) {
-                call_user_func_array($this->chunkCallback, array($buffer, $this->readBytes));
+                call_user_func($this->chunkCallback, $buffer, $this->readBytes);
             }
 
             return $buffer;
@@ -65,17 +79,22 @@ class File implements StreamInterface
         return false;
     }
 
-    public function isSeekable()
+    /**
+     * @return bool
+     */
+    public function isSeekable(): bool
     {
         $meta = stream_get_meta_data($this->handle);
-
         return $meta["seekable"];
     }
 
-    public function rewind()
+    /**
+     * @return void
+     */
+    public function rewind(): void
     {
         if (!$this->isSeekable()) {
-            throw new Exception("Attempted to rewind an unseekable stream");
+            throw new RuntimeException("Attempted to rewind an unseekable stream");
         }
 
         $this->readBytes = 0;

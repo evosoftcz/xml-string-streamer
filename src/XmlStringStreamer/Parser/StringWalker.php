@@ -1,4 +1,5 @@
-<?php
+<?php declare(strict_types=1);
+namespace Prewk\XmlStringStreamer\Parser;
 /**
  * xml-string-streamer StringWalker parser
  * 
@@ -6,11 +7,10 @@
  * @author  Oskar Thornblad <oskar.thornblad@gmail.com>
  */
 
-namespace Prewk\XmlStringStreamer\Parser;
-
 use Exception;
 use Prewk\XmlStringStreamer\ParserInterface;
 use Prewk\XmlStringStreamer\StreamInterface;
+use RuntimeException;
 
 /**
  * The string walker parser builds the XML nodes by fetching one element at a time until a certain depth is re-reached
@@ -21,93 +21,93 @@ class StringWalker implements ParserInterface
      * Holds the parser configuration
      * @var array
      */
-    protected $options;
+    protected array $options;
 
     /**
      * Is this the first run?
      * @var boolean
      */
-    protected $firstRun;
+    protected bool $firstRun;
 
     /**
      * What depth are we currently at?
      * @var integer
      */
-    protected $depth;
+    protected int $depth;
 
     /**
      * The latest chunk from the stream
      * @var string
      */
-    protected $chunk;
+    protected string $chunk;
 
     /**
      * Last XML node in the making, used for anti-freeze detection
      * @var null|string
      */
-    protected $lastChunk;
+    protected ?string $lastChunk;
 
     /**
      * XML node in the making
      * @var null|string
      */
-    protected $shaved;
+    protected ?string $shaved;
 
     /**
      * Whether to capture or not
      * @var boolean
      */
-    protected $capture;
+    protected bool $capture;
 
     /**
      * If extractContainer is true, this will grow with the XML captured before and after the specified capture depth
      * @var string
      */
-    protected $containerXml;
+    protected string $containerXml;
 
     /**
      * Parser constructor
      * @param array $options An options array
      */
-    public function __construct(array $options = array())
+    public function __construct(array $options = [])
     {
         $this->reset();
 
-        $this->options = array_merge(array(
+        $this->options = array_merge([
             "captureDepth" => 2,
             "expectGT" => false,
-            "tags" => array(
-                array("<?", "?>", 0),
-                array("<!--", "-->", 0),
-                array("<![CDATA[", "]]>", 0),
-                array("<!", ">", 0),
-                array("</", ">", -1),
-                array("<", "/>", 0),
-                array("<", ">", 1),
-            ),
-            "tagsWithAllowedGT" => array(
-                array("<!--", "-->"),
-                array("<![CDATA[", "]]>"),
-            ),
+            "tags" => [
+                ["<?", "?>", 0],
+                ["<!--", "-->", 0],
+                ["<![CDATA[", "]]>", 0],
+                ["<!", ">", 0],
+                ["</", ">", -1],
+                ["<", "/>", 0],
+                ["<", ">", 1],
+            ],
+            "tagsWithAllowedGT" => [
+                ["<!--", "-->"],
+                ["<![CDATA[", "]]>"],
+            ],
             "extractContainer" => false,
-        ), $options);
+        ], $options);
     }
 
     /**
      * Shaves off the next element from the chunk
      * @return string[]|bool Either a shaved off element array(0 => Captured element, 1 => Data from last shaving point up to and including captured element) or false if one could not be obtained
      */
-    protected function shave()
+    protected function shave(): array|bool
     {
         preg_match("/<[^>]+>/", $this->chunk, $matches, PREG_OFFSET_CAPTURE);
 
         if (isset($matches[0], $matches[0][0], $matches[0][1])) {
-            list($captured, $offset) = $matches[0];
+            [$captured, $offset] = $matches[0];
 
             if ($this->options["expectGT"]) {
                 // Some elements support > inside
                 foreach ($this->options["tagsWithAllowedGT"] as $tag) {
-                    list($opening, $closing) = $tag;
+                    [$opening, $closing] = $tag;
 
                     if (substr($captured, 0, strlen($opening)) === $opening) {
                         // We have a match, our preg_match may have ended too early
@@ -142,22 +142,22 @@ class StringWalker implements ParserInterface
 
     /**
      * Extract XML compatible tag head and tail
-     * @param  string $element XML element
+     * @param  string  $element  XML element
      * @return string[] 0 => Opening tag, 1 => Closing tag
      */
-    protected function getEdges($element)
+    protected function getEdges(string $element): array
     {
         // TODO: Performance tuning possible here by not looping
 
         foreach ($this->options["tags"] as $tag) {
-            list($opening, $closing, $depth) = $tag;
+            [$opening, $closing, $depth] = $tag;
 
-            if (substr($element, 0, strlen($opening)) === $opening
-                && substr($element, -1 * strlen($closing)) === $closing) {
-
+            if (str_starts_with($element, $opening) && str_ends_with($element, $closing)) {
                 return $tag;
             }
         }
+
+        return [];
     }
     
     /**
@@ -165,14 +165,15 @@ class StringWalker implements ParserInterface
      * @param  StreamInterface $stream The stream to read from
      * @return bool Returns whether there is more XML data or not
      */
-    protected function prepareChunk(StreamInterface $stream)
+    protected function prepareChunk(StreamInterface $stream): bool
     {
         if (!$this->firstRun && is_null($this->shaved)) {
             // We're starting again after a flush
             $this->shaved = "";
-
             return true;
-        } else if (is_null($this->shaved)) {
+        }
+
+        if (is_null($this->shaved)) {
             $this->shaved = "";
         }
 
@@ -182,13 +183,13 @@ class StringWalker implements ParserInterface
             $this->chunk .= $newChunk;
 
             return true;
-        } else {
-            if (trim($this->chunk) !== "" && $this->chunk !== $this->lastChunk) {
-                // Update anti-freeze protection chunk
-                $this->lastChunk = $this->chunk;
-                // Continue
-                return true;
-            }
+        }
+
+        if (trim($this->chunk) !== "" && $this->chunk !== $this->lastChunk) {
+            // Update anti-freeze protection chunk
+            $this->lastChunk = $this->chunk;
+            // Continue
+            return true;
         }
 
         return false;
@@ -199,10 +200,10 @@ class StringWalker implements ParserInterface
      * @return string XML string
      * @throws Exception if the extractContainer option isn't true
      */
-    public function getExtractedContainer()
+    public function getExtractedContainer(): string
     {
         if (!$this->options["extractContainer"]) {
-            throw new Exception("This method requires the 'extractContainer' option to be true");
+            throw new RuntimeException("This method requires the 'extractContainer' option to be true");
         }
 
         return $this->containerXml;
@@ -213,17 +214,17 @@ class StringWalker implements ParserInterface
      * @param  StreamInterface $stream The stream to use
      * @return string|bool             The next xml node or false if one could not be retrieved
      */
-    public function getNodeFrom(StreamInterface $stream)
+    public function getNodeFrom(StreamInterface $stream): bool|string|null
     {
         // Iterate and append to $this->chunk
         while ($this->prepareChunk($stream)) {
             $this->firstRun = false;
             // Shave off elements
             while ($shaved = $this->shave()) {
-                list($element, $data) = $shaved;
+                [$element, $data] = $shaved;
 
                 // Analyze element
-                list($opening, $closing, $depth) = $this->getEdges($element);
+                [$opening, $closing, $depth] = $this->getEdges($element);
 
                 // Update depth
                 $this->depth += $depth;
@@ -269,7 +270,7 @@ class StringWalker implements ParserInterface
         return false;
     }
 
-    public function reset()
+    public function reset(): void
     {
         $this->firstRun = true;
         $this->depth = 0;

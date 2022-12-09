@@ -1,4 +1,6 @@
-<?php
+<?php declare(strict_types=1);
+namespace Prewk\XmlStringStreamer\Parser;
+
 /**
  * xml-string-streamer UniqueNode parser
  *
@@ -7,84 +9,86 @@
  * @author  Roman Voloboev <animir@ya.ru>
  */
 
-namespace Prewk\XmlStringStreamer\Parser;
-
+use AllowDynamicProperties;
 use Exception;
 use Prewk\XmlStringStreamer\ParserInterface;
 use Prewk\XmlStringStreamer\StreamInterface;
+use RuntimeException;
 
 /**
  * The unique node parser starts at a given element name and flushes when its corresponding closing tag is found
  */
+
+#[AllowDynamicProperties]
 class UniqueNode implements ParserInterface
 {
-    const FIND_OPENING_TAG_ACTION = 0;
-    const FIND_CLOSING_TAG_ACTION = 1;
+    public const FIND_OPENING_TAG_ACTION = 0;
+    public const FIND_CLOSING_TAG_ACTION = 1;
 
     /**
      * Current working XML blob
      * @var string
      */
-    private $workingBlob;
+    private string $workingBlob;
 
     /**
      * The flushed node
      * @var string
      */
-    private $flushed;
+    private string $flushed;
 
     /**
      * Start position of the given element in the workingBlob
      * @var integer
      */
-    private $startPos;
+    private int $startPos;
 
     /**
      * Records how far we've searched in the XML blob so far
      * @var integer
      */
-    private $hasSearchedUntilPos;
+    private int $hasSearchedUntilPos;
 
     /**
      * Next action to perform
      * @var integer
      */
-    private $nextAction;
+    private int $nextAction;
 
     /**
      * Indicates short closing tag
      * @var bool
      */
 
-    private $shortClosedTagNow;
+    private bool $shortClosedTagNow;
 
     /**
      * If extractContainer is true, this will grow with the XML captured before and after the specified capture depth
      * @var string
      */
-    protected $containerXml;
+    protected string $containerXml;
 
     /**
      * Whether we're found our first capture target or not
      * @var bool
      */
-    protected $preCapture;
+    protected bool $preCapture;
 
     /**
      * Parser constructor
      * @param array $options An options array
      * @throws Exception if the required option uniqueNode isn't set
      */
-    public function __construct(array $options = array())
+    public function __construct(array $options = [])
     {
         $this->reset();
 
-        $this->options = array_merge(array(
+        $this->options = array_merge([
             "extractContainer" => false,
-        ), $options);
+        ], $options);
 
         if (!isset($this->options["uniqueNode"])) {
-            throw new Exception("Required option 'uniqueNode' not set");
+            throw new RuntimeException("Required option 'uniqueNode' not set");
         }
     }
 
@@ -92,7 +96,7 @@ class UniqueNode implements ParserInterface
      * Search the blob for our unique node's opening tag
      * @return bool|int Either returns the char position of the opening tag or false
      */
-    protected function getOpeningTagPos()
+    protected function getOpeningTagPos(): bool|int
     {
         $startPositionInBlob = false;
         if (preg_match("/<" . preg_quote($this->options["uniqueNode"]) . "(>| )/", $this->workingBlob, $matches, PREG_OFFSET_CAPTURE) === 1) {
@@ -110,11 +114,12 @@ class UniqueNode implements ParserInterface
     /**
      * Search short closing tag in $workingBlob before
      *
-     * @param string $workingBlob
-     * @param int $len
+     * @param  string  $workingBlob
+     * @param  int     $len
      * @return bool|int Either returns the char position of the short closing tag or false
      */
-    private function checkShortClosingTag($workingBlob, $len) {
+    private function checkShortClosingTag(string $workingBlob, int $len): bool|int
+    {
         $resultEndPositionInBlob = false;
         while ($len = strpos($workingBlob, "/>", $len + 1)) {
             $subBlob = substr($workingBlob, $this->startPos, $len + strlen("/>") - $this->startPos);
@@ -132,7 +137,7 @@ class UniqueNode implements ParserInterface
      * Search the blob for our unique node's closing tag
      * @return bool|int Either returns the char position of the closing tag or false
      */
-    protected function getClosingTagPos()
+    protected function getClosingTagPos(): bool|int
     {
         $endPositionInBlob = strpos($this->workingBlob, "</" . $this->options["uniqueNode"] . ">", $this->startPos);
         if ($endPositionInBlob === false) {
@@ -161,18 +166,19 @@ class UniqueNode implements ParserInterface
 
     /**
      * Set the start position in the workingBlob from where we should start reading when the closing tag is found
-     * @param  int $startPositionInBlob Position of starting tag
+     * @param  int  $startPositionInBlob  Position of starting tag
      */
-    protected function startSalvaging($startPositionInBlob)
+    protected function startSalvaging(int $startPositionInBlob): void
     {
         $this->startPos = $startPositionInBlob;
     }
 
     /**
      * Cut everything from the start position to the end position in the workingBlob (+ tag length) and flush it out for later return in getNodeFrom
-     * @param  int $endPositionInBlob Position of the closing tag
+     * @param  int  $endPositionInBlob  Position of the closing tag
      */
-    protected function flush($endPositionInBlob) {
+    protected function flush(int $endPositionInBlob): void
+    {
         $endTagLen = $this->shortClosedTagNow ? 0 : strlen("</" . $this->options["uniqueNode"] . ">");
         $realEndPosition = $endPositionInBlob + $endTagLen;
         $this->flushed = substr($this->workingBlob, $this->startPos, $realEndPosition - $this->startPos);
@@ -186,7 +192,7 @@ class UniqueNode implements ParserInterface
      * @param  StreamInterface $stream The stream provider
      * @return bool                    Keep working?
      */
-    protected function prepareChunk(StreamInterface $stream)
+    protected function prepareChunk(StreamInterface $stream): ?bool
     {
         if ($this->hasSearchedUntilPos > -1 && $this->hasSearchedUntilPos < (strlen($this->workingBlob) - 1)) {
             // More work to do
@@ -197,25 +203,19 @@ class UniqueNode implements ParserInterface
 
         if ($chunk === false) {
             // EOF
-            if ($this->hasSearchedUntilPos === -1 && strlen($this->workingBlob) > 0) {
-                // EOF, but we haven't even started searching, special case that probably means we're dealing with a file of less size than the stream buffer
-                // Therefore, keep looping
-                return true;
-            }
-            return false;
-        } else {
-            // New chunk fetched
-
-            if ($this->nextAction === self::FIND_OPENING_TAG_ACTION && !$this->options["extractContainer"]) {
-                // Prevent a memory leak if we never find our first node, throw away our old stuff
-                // but keep some letters to not cut off a first node
-                $this->workingBlob = substr($this->workingBlob, -1 * strlen("<" . $this->options["uniqueNode"] . ">")) . $chunk;
-            } else {
-                $this->workingBlob .= $chunk;
-            }
-
-            return true;
+            return $this->hasSearchedUntilPos === -1 && strlen($this->workingBlob) > 0;
         }
+
+        // New chunk fetched
+        if ($this->nextAction === self::FIND_OPENING_TAG_ACTION && !$this->options["extractContainer"]) {
+            // Prevent a memory leak if we never find our first node, throw away our old stuff
+            // but keep some letters to not cut off a first node
+            $this->workingBlob = substr($this->workingBlob, -1 * strlen("<" . $this->options["uniqueNode"] . ">")) . $chunk;
+        } else {
+            $this->workingBlob .= $chunk;
+        }
+
+        return true;
     }
 
     /**
@@ -223,7 +223,7 @@ class UniqueNode implements ParserInterface
      * @param  StreamInterface $stream The stream to use
      * @return string|bool             The next xml node or false if one could not be retrieved
      */
-    public function getNodeFrom(StreamInterface $stream)
+    public function getNodeFrom(StreamInterface $stream): bool|string
     {
         while ($this->prepareChunk($stream)) {
             // What's our next course of action?
@@ -277,10 +277,10 @@ class UniqueNode implements ParserInterface
      * @return string XML string
      * @throws Exception if the extractContainer option isn't true
      */
-    public function getExtractedContainer()
+    public function getExtractedContainer(): string
     {
         if (!$this->options["extractContainer"]) {
-            throw new Exception("This method requires the 'extractContainer' option to be true");
+            throw new RuntimeException("This method requires the 'extractContainer' option to be true");
         }
 
         return $this->containerXml;
@@ -290,12 +290,12 @@ class UniqueNode implements ParserInterface
      * @internal
      * @return string
      */
-    public function getCurrentWorkingBlob()
+    public function getCurrentWorkingBlob(): string
     {
         return $this->workingBlob;
     }
 
-    public function reset()
+    public function reset(): void
     {
         $this->workingBlob = '';
         $this->flushed = '';
